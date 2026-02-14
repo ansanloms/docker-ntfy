@@ -1,0 +1,39 @@
+services:
+  ntfy:
+    image: docker.io/binwiederhier/ntfy:v2.17
+    command: serve
+    ports:
+      - "${NTFY_PORT:-2586}:80"
+    environment:
+      NTFY_BASE_URL: ${NTFY_BASE_URL:-http://localhost:${NTFY_PORT:-2586}}
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_CACHE_DURATION: ${NTFY_CACHE_DURATION:-1h}
+      NTFY_AUTH_FILE: /var/cache/ntfy/auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_BEHIND_PROXY: "false"
+    volumes:
+      - type: bind
+        source: ./ntfy/cache
+        target: /var/cache/ntfy
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+  tailscale:
+    image: docker.io/tailscale/tailscale:v1.92.4
+    profiles: [tailscale]
+    network_mode: service:ntfy
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - type: bind
+        source: ./tailscale/state
+        target: /var/lib/tailscale
+      - type: bind
+        source: /dev/net/tun
+        target: /dev/net/tun
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-""}
+      TS_STATE_DIR: /var/lib/tailscale
+    depends_on:
+      - ntfy
+    restart: ${RESTART_POLICY:-unless-stopped}
